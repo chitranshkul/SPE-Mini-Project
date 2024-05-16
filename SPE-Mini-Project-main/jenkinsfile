@@ -1,0 +1,59 @@
+pipeline {
+    agent any
+    tools {nodejs "nodejs"}
+    environment {
+        DOCKER_IMAGE_NAME = 'react_calculators'
+        GITHUB_REPO_URL = 'https://github.com/codaks/SPE-Mini-Project.git'
+        DOCKERHUB_CREDENTIALS = credentials('DockerHubCred')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    // Checkout the code from the GitHub repository
+                    git branch: 'main', url: "${GITHUB_REPO_URL}"
+                }
+            }
+        }
+    
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                docker build -t react_calculators .
+                '''
+            }
+        }
+
+        stage('Testing') {
+            steps {
+                sh '''
+                npm install
+                npm run test
+                '''
+            }
+        }
+
+        stage('Push Docker Images') {
+            steps {
+                script{
+                    docker.withRegistry('', 'DockerHubCred') {
+                    sh 'docker tag react_calculators chitranshkul07/react_calculators:latest'
+                    sh 'docker push chitranshkul07/react_calculators'
+                    }
+                 }
+            }
+        }
+
+   stage('Run Ansible Playbook') {
+            steps {
+                script {
+                    ansiblePlaybook(
+                        playbook: 'deploy.yml',
+                        inventory: 'inventory'
+                     )
+                }
+            }
+        }
+    }
+}
